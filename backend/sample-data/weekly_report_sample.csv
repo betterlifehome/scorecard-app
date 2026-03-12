@@ -1,0 +1,9 @@
+employee_id,employee_name,phone,week_of,quality_score,response_rate,productivity_score,efficiency_score,unplanned_absences
+T001,Maria Gonzalez,5551234001,2026-03-08,92,78,88,91,0
+T002,James Okafor,5551234002,2026-03-08,85,65,79,82,1
+T003,Priya Patel,5551234003,2026-03-08,97,88,95,93,0
+T004,Derek Williams,5551234004,2026-03-08,74,55,71,68,2
+T005,Sandra Kim,5551234005,2026-03-08,89,72,84,87,0
+T006,Marcus Thompson,5551234006,2026-03-08,61,48,65,59,1
+T007,Lena Horvath,,2026-03-08,90,81,88,92,0
+T008,Carlos Rivera,5551234008,2026-03-08,78,70,76,80,0
