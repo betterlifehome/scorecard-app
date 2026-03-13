@@ -2,30 +2,41 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { initDB } = require('./lib/db');
 
-const uploadRoutes = require('./routes/upload');
-const smsRoutes = require('./routes/sms');
+const uploadRoutes   = require('./routes/upload');
+const smsRoutes      = require('./routes/sms');
+const employeeRoutes = require('./routes/employees');
+const notifyRoutes   = require('./routes/notify');
+const historyRoutes  = require('./routes/history');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.NODE_ENV === 'production'
+    ? '*'
+    : (process.env.FRONTEND_URL || 'http://localhost:5173'),
   credentials: true,
 }));
-
 app.use(express.json());
 
-// API routes
-app.use('/api/upload', uploadRoutes);
-app.use('/api/sms', smsRoutes);
+app.use('/api/upload',    uploadRoutes);
+app.use('/api/sms',       smsRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/notify',    notifyRoutes);
+app.use('/api/history',   historyRoutes);
 
-// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    twilio:    !!process.env.TWILIO_ACCOUNT_SID,
+    sendgrid:  !!process.env.SENDGRID_API_KEY,
+    database:  !!process.env.DATABASE_URL,
+  });
 });
 
-// Serve built frontend in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend/dist')));
   app.get('*', (req, res) => {
@@ -33,8 +44,18 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`\n🚀 Scorecard server running on http://localhost:${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   Twilio: ${process.env.TWILIO_ACCOUNT_SID ? '✅ configured' : '⚠️  not configured (add to .env)'}`);
-});
+async function start() {
+  if (process.env.DATABASE_URL) {
+    await initDB();
+  } else {
+    console.warn('⚠️  DATABASE_URL not set — history features disabled');
+  }
+  app.listen(PORT, () => {
+    console.log(`\n🚀 Scorecard server running on http://localhost:${PORT}`);
+    console.log(`   Twilio:    ${process.env.TWILIO_ACCOUNT_SID ? '✅' : '⚠️  not configured'}`);
+    console.log(`   SendGrid:  ${process.env.SENDGRID_API_KEY   ? '✅' : '⚠️  not configured'}`);
+    console.log(`   Database:  ${process.env.DATABASE_URL       ? '✅' : '⚠️  not configured'}`);
+  });
+}
+
+start();

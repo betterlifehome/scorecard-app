@@ -1,28 +1,26 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { createContext, useContext, useState } from 'react';
-import { ClipboardList, Upload, LayoutGrid } from 'lucide-react';
+import { ClipboardList, Upload, LayoutGrid, Users, Send, Clock } from 'lucide-react';
 
-// Global app state context
-const AppContext = createContext(null);
+export const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
 export default function Layout() {
   const navigate = useNavigate();
   const [scorecards, setScorecards] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [weekOf, setWeekOf] = useState('');
+  const [stats, setStats]           = useState(null);
+  const [weekOf, setWeekOf]         = useState('');
 
   function loadResults(data) {
     setScorecards(data.scorecards || []);
     setStats(data.stats || null);
-    setWeekOf(data.stats?.weekOf || '');
+    setWeekOf(data.weekOf || '');
     navigate('/scorecards');
   }
 
   return (
     <AppContext.Provider value={{ scorecards, setScorecards, stats, setStats, weekOf, loadResults }}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Top nav */}
         <header style={{
           background: 'var(--brand-dark)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -42,18 +40,20 @@ export default function Layout() {
             </span>
           </div>
 
-          <nav style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
-            <NavItem to="/" icon={<Upload size={15} />} label="Upload" />
+          <nav style={{ display: 'flex', gap: 4, marginLeft: 8, flexWrap: 'wrap' }}>
+            <NavItem to="/"          icon={<Upload size={15} />}      label="Upload" />
             <NavItem to="/scorecards" icon={<LayoutGrid size={15} />} label="Scorecards" />
+            <NavItem to="/employees" icon={<Users size={15} />}       label="Employees" />
+            <NavItem to="/send"      icon={<Send size={15} />}        label="Send" />
+            <NavItem to="/benefits"  icon={<Clock size={15} />}       label="Hours" />
           </nav>
         </header>
 
-        {/* Page content */}
         <main style={{ flex: 1, padding: '32px 24px', maxWidth: 1200, width: '100%', margin: '0 auto' }}>
           <Outlet />
         </main>
 
-        <footer style={{ padding: '16px 24px', borderTop: `1px solid var(--ink-100)`, textAlign: 'center' }}>
+        <footer style={{ padding: '16px 24px', borderTop: '1px solid var(--ink-100)', textAlign: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--ink-300)' }}>Tech Scorecard — Internal tool</span>
         </footer>
       </div>

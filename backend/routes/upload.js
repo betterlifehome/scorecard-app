@@ -7,6 +7,7 @@ const {
   buildStats,
   getHeaders,
 } = require('../lib/reportParser');
+const db = require('../lib/db');
 
 const router = express.Router();
 
@@ -21,16 +22,10 @@ const upload = multer({
   },
 });
 
-/**
- * POST /api/upload/process
- * Both files use the same CRM export format.
- * weeklyReport   = current week (shorter date range)
- * sixMonthReport = rolling 6-month period (longer date range)
- */
 router.post('/process', upload.fields([
   { name: 'weeklyReport', maxCount: 1 },
   { name: 'sixMonthReport', maxCount: 1 },
-]), (req, res) => {
+]), async (req, res) => {
   try {
     if (!req.files?.weeklyReport)   return res.status(400).json({ error: 'Weekly report file is required.' });
     if (!req.files?.sixMonthReport) return res.status(400).json({ error: '6-month report file is required.' });
@@ -47,8 +42,20 @@ router.post('/process', upload.fields([
     const scorecards = mergeReports(weeklyData, sixMonthData);
     const stats      = buildStats(scorecards);
 
+    let weekOf = req.body.weekOf || getThisMonday();
+
+    let saved = false;
+    try {
+      await db.saveWeeklySnapshot(weekOf, scorecards);
+      saved = true;
+    } catch (dbErr) {
+      console.error('DB save error (non-fatal):', dbErr.message);
+    }
+
     res.json({
       success: true,
+      weekOf,
+      savedToHistory: saved,
       stats,
       scorecards,
       _debug: {
@@ -63,5 +70,13 @@ router.post('/process', upload.fields([
     res.status(400).json({ error: err.message || 'Failed to process reports.' });
   }
 });
+
+function getThisMonday() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+}
 
 module.exports = router;

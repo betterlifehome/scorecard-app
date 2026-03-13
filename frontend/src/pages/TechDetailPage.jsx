@@ -143,10 +143,12 @@ export default function TechDetailPage() {
             <div style={{
               background: 'var(--white)', border: '1px solid var(--ink-100)',
               borderRadius: 'var(--radius-lg)', padding: '16px 20px', boxShadow: 'var(--shadow-sm)',
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12,
+              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 12,
             }}>
+              <VolStat icon={<Briefcase size={14} color="var(--brand)" />} label="Days" value={tech.weeklyWorked ?? '—'} />
               <VolStat icon={<Briefcase size={14} color="var(--brand)" />} label="Jobs" value={tech.jobs ?? '—'} />
-              <VolStat icon={<Clock size={14} color="var(--info)" />}     label="Clock hrs" value={tech.clockHours?.toFixed(1) ?? '—'} />
+              <VolStat icon={<Clock size={14} color="var(--info)" />}      label="Job hrs"   value={tech.jobHours?.toFixed(1) ?? '—'} />
+              <VolStat icon={<Clock size={14} color="#6366f1" />}          label="Clock hrs" value={tech.clockHours?.toFixed(1) ?? '—'} />
               <VolStat icon={<DollarSign size={14} color="var(--warning)" />} label="Revenue"
                 value={tech.revenue ? `$${tech.revenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'} />
             </div>
