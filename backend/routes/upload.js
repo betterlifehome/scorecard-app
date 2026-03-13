@@ -48,8 +48,9 @@ router.post('/process', upload.fields([
     try {
       await db.saveWeeklySnapshot(weekOf, scorecards);
       saved = true;
+      console.log(`✅ Saved ${scorecards.length} scorecards for week ${weekOf}`);
     } catch (dbErr) {
-      console.error('DB save error (non-fatal):', dbErr.message);
+      console.error('❌ DB save error:', dbErr.message, dbErr.stack);
     }
 
     res.json({

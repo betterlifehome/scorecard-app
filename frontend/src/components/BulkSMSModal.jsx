@@ -1,13 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, MessageSquare, CheckCircle, AlertCircle, Loader, Users } from 'lucide-react';
-import { buildScorecardMessage } from '../lib/scorecard';
+import { buildScorecardMessage, normalizeName } from '../lib/scorecard';
 import { sendBulkSMS } from '../lib/api';
 
 export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
-  const eligible = scorecards.filter(t => t.phone);
-  const [selected, setSelected] = useState(new Set(eligible.map(t => t.id)));
-  const [sending, setSending] = useState(false);
-  const [results, setResults] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [sending, setSending]     = useState(false);
+  const [results, setResults]     = useState(null);
+  const [selected, setSelected]   = useState(new Set());
+
+  // Fetch employee roster on mount
+  useEffect(() => {
+    fetch('/api/employees')
+      .then(r => r.json())
+      .then(emps => {
+        setEmployees(emps);
+      })
+      .catch(console.error);
+  }, []);
+
+  // Match scorecards to employees by name
+  const eligible = scorecards
+    .map(sc => {
+      const scFirst = normalizeName(sc.firstName);
+      const scLast  = normalizeName(sc.lastName);
+      const emp = employees.find(e =>
+        e.nameKey === sc.nameKey ||
+        (normalizeName(e.firstName) === scFirst && normalizeName(e.lastName) === scLast)
+      );
+      if (!emp?.phone) return null;
+      return {
+        ...sc,
+        phone: emp.phone,
+        email: emp.email || '',
+        employeeName: sc.fullName,
+      };
+    })
+    .filter(Boolean);
+
+  // Auto-select all eligible once employees load
+  useEffect(() => {
+    if (eligible.length > 0) {
+      setSelected(new Set(eligible.map(t => t.id)));
+    }
+  }, [employees.length]);
 
   function toggle(id) {
     const next = new Set(selected);
@@ -33,7 +69,7 @@ export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
     const messages = toSend.map(tech => ({
       to: tech.phone,
       message: buildScorecardMessage(tech, weekOf),
-      employeeName: tech.employeeName,
+      employeeName: tech.fullName,
     }));
 
     try {
@@ -45,6 +81,15 @@ export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
       setSending(false);
     }
   }
+
+  const unmatchedCount = scorecards.filter(sc => {
+    const scFirst = normalizeName(sc.firstName);
+    const scLast  = normalizeName(sc.lastName);
+    return !employees.find(e =>
+      e.nameKey === sc.nameKey ||
+      (normalizeName(e.firstName) === scFirst && normalizeName(e.lastName) === scLast)
+    );
+  }).length;
 
   return (
     <div style={{
@@ -77,13 +122,29 @@ export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink-900)' }}>Send Bulk Scorecards</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-400, #8b909e)' }}>{eligible.length} technicians with phone numbers</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-400, #8b909e)' }}>
+                {eligible.length} technicians matched with phone numbers
+                {unmatchedCount > 0 && ` · ${unmatchedCount} unmatched`}
+              </div>
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-300)', padding: 4 }}>
             <X size={18} />
           </button>
         </div>
+
+        {/* No employees warning */}
+        {employees.length === 0 && (
+          <div style={{ padding: '16px 24px', background: '#fffbeb', borderBottom: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
+            ⚠️ No employee roster loaded. Go to the <strong>Employees</strong> tab and upload your roster with phone numbers first.
+          </div>
+        )}
+
+        {eligible.length === 0 && employees.length > 0 && (
+          <div style={{ padding: '16px 24px', background: '#fffbeb', borderBottom: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
+            ⚠️ No techs matched to employees with phone numbers. Make sure names in your roster match the CRM export.
+          </div>
+        )}
 
         {/* Results view */}
         {results ? (
@@ -106,15 +167,13 @@ export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
                     </div>
                   )}
                 </div>
-
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {results.results?.map((r, i) => (
                     <div key={i} style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       padding: '10px 12px',
                       background: r.success ? 'var(--success-bg)' : 'var(--danger-bg)',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: 13,
+                      borderRadius: 'var(--radius-md)', fontSize: 13,
                     }}>
                       {r.success
                         ? <CheckCircle size={14} color="var(--success)" />
@@ -129,31 +188,14 @@ export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
                 </div>
               </>
             )}
-            <button
-              onClick={onClose}
-              style={{
-                marginTop: 20, width: '100%', padding: '10px',
-                background: 'var(--brand)', color: '#fff',
-                border: 'none', borderRadius: 'var(--radius-md)',
-                fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
+            <button onClick={onClose} style={{ marginTop: 20, width: '100%', padding: '10px', background: 'var(--brand)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               Done
             </button>
           </div>
         ) : (
           <>
-            {/* Tech list */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 24px' }}>
-              <button
-                onClick={toggleAll}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: 13, color: 'var(--brand)', fontWeight: 600,
-                  padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6,
-                  marginBottom: 8,
-                }}
-              >
+              <button onClick={toggleAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--brand)', fontWeight: 600, padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <Users size={13} />
                 {selected.size === eligible.length ? 'Deselect all' : 'Select all'}
                 <span style={{ color: 'var(--ink-300)', fontWeight: 400 }}>({selected.size} selected)</span>
@@ -176,26 +218,15 @@ export default function BulkSMSModal({ scorecards, weekOf, onClose }) {
                     style={{ accentColor: 'var(--brand)', width: 16, height: 16 }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-700)' }}>{tech.employeeName}</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-700)' }}>{tech.fullName}</div>
                     <div style={{ fontSize: 12, color: 'var(--ink-400, #8b909e)', fontFamily: 'var(--font-mono)' }}>{tech.phone}</div>
                   </div>
-                  {tech.overallScore !== null && tech.overallScore !== undefined && (
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand)' }}>{tech.overallScore}%</span>
-                  )}
                 </label>
               ))}
             </div>
 
-            {/* Footer */}
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--ink-100)', display: 'flex', gap: 10 }}>
-              <button
-                onClick={onClose}
-                style={{
-                  flex: 1, padding: '10px', background: 'none',
-                  border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-md)',
-                  fontSize: 14, cursor: 'pointer', color: 'var(--ink-500)',
-                }}
-              >
+              <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'none', border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-md)', fontSize: 14, cursor: 'pointer', color: 'var(--ink-500)' }}>
                 Cancel
               </button>
               <button

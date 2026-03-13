@@ -27,13 +27,25 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/notify',    notifyRoutes);
 app.use('/api/history',   historyRoutes);
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let dbOk = false;
+  let dbError = null;
+  if (process.env.DATABASE_URL) {
+    try {
+      const { pool } = require('./lib/db');
+      await pool.query('SELECT 1');
+      dbOk = true;
+    } catch (err) {
+      dbError = err.message;
+    }
+  }
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     twilio:    !!process.env.TWILIO_ACCOUNT_SID,
     sendgrid:  !!process.env.SENDGRID_API_KEY,
-    database:  !!process.env.DATABASE_URL,
+    database:  dbOk,
+    dbError,
   });
 });
 
