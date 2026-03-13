@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
+const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 
@@ -32,28 +33,37 @@ router.get('/', (req, res) => {
   res.json(loadEmployees());
 });
 
-// POST upload CSV roster
+// POST upload CSV or Excel roster
 // Expected columns: first_name, last_name, email, phone
 router.post('/upload', upload.single('roster'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const records = parse(req.file.buffer.toString(), {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    });
+    const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
+    let records = [];
+
+    if (ext === 'csv') {
+      records = parse(req.file.buffer.toString(), {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+    } else if (['xlsx', 'xls'].includes(ext)) {
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      records = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    } else {
+      return res.status(400).json({ error: 'Only .xlsx, .xls, or .csv files are accepted.' });
+    }
 
     const employees = records.map(r => ({
-      firstName: r.first_name || r.firstName || r['First Name'] || '',
-      lastName: r.last_name || r.lastName || r['Last Name'] || '',
-      email: r.email || r.Email || '',
-      phone: r.phone || r.Phone || r.mobile || '',
-      nameKey: nameKey(
-        r.first_name || r.firstName || r['First Name'] || '',
-        r.last_name || r.lastName || r['Last Name'] || ''
-      ),
-    })).filter(e => e.firstName && e.lastName);
+      firstName: r.first_name || r.firstName || r['First Name'] || r['FIRST NAME'] || '',
+      lastName:  r.last_name  || r.lastName  || r['Last Name']  || r['LAST NAME']  || '',
+      email:     r.email      || r.Email     || r['Email']      || r['EMAIL']      || '',
+      phone:     r.phone      || r.Phone     || r.mobile        || r['Phone']      || r['Mobile'] || '',
+    }))
+    .map(e => ({ ...e, nameKey: nameKey(e.firstName, e.lastName) }))
+    .filter(e => e.firstName && e.lastName);
 
     saveEmployees(employees);
     res.json({ success: true, count: employees.length, employees });

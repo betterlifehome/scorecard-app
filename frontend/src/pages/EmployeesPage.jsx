@@ -67,13 +67,13 @@ export default function EmployeesPage() {
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Employee Roster</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <input ref={fileRef} type="file" accept=".csv" onChange={handleCSV} style={{ display: 'none' }} />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleCSV} style={{ display: 'none' }} />
           <button
             onClick={() => fileRef.current.click()}
             disabled={uploading}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, cursor: 'pointer', fontSize: '0.875rem' }}
           >
-            <Upload size={15} /> {uploading ? 'Uploading...' : 'Upload CSV'}
+            <Upload size={15} /> {uploading ? 'Uploading...' : 'Upload Excel or CSV'}
           </button>
           <button
             onClick={() => setShowAdd(!showAdd)}
@@ -86,7 +86,7 @@ export default function EmployeesPage() {
 
       {/* CSV format hint */}
       <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-        CSV format: <code>first_name, last_name, email, phone</code> — phone optional, can add later
+        Excel or CSV columns: <code>first_name, last_name, email, phone</code> — phone optional, can add later
       </div>
 
       {uploadResult && (
