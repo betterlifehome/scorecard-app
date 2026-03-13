@@ -11,14 +11,11 @@ export function buildScorecardMessage(tech, weekLabel) {
     '',
   ];
 
-  if (tech.qualityScore > 0) {
-    lines.push(`⭐ Quality Score: ${tech.qualityScore}%`);
+  if (tech.avgSurveyScore > 0) {
+    lines.push(`⭐ Quality Score: ${tech.avgSurveyScore}%`);
   }
   if (tech.responseRate > 0) {
     lines.push(`📋 Customer Response Rate: ${tech.responseRate}%`);
-  }
-  if (tech.avgSurveyScore > 0) {
-    lines.push(`📊 Avg Survey Score: ${tech.avgSurveyScore}%`);
   }
   if (tech.efficiencyScore > 0) {
     lines.push(`⚡ Efficiency: ${tech.efficiencyScore}%`);

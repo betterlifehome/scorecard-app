@@ -41,9 +41,8 @@ export default function TechDetailPage() {
   const isActive = tech.weeklyWorked > 0;
 
   const scoreMetrics = [
-    { label: 'Quality Score',   value: tech.qualityScore,    desc: 'Inspection & service quality (col L)' },
+    { label: 'Quality Score',   value: tech.avgSurveyScore,  desc: 'Avg. score from customer surveys (col Z)' },
     { label: 'Response Rate',   value: tech.responseRate,    desc: 'Customers who responded to scorecard (col AA)' },
-    { label: 'Avg Survey',      value: tech.avgSurveyScore,  desc: 'Average customer survey rating (col Z)' },
     { label: 'Efficiency',      value: tech.efficiencyScore, desc: 'Job hours vs clock hours (col AE)' },
   ];
 
