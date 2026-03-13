@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { Send, Mail, MessageSquare, ChevronDown, ChevronUp, Check, AlertCircle, Edit2 } from 'lucide-react';
 import { AppContext } from '../components/Layout';
-import { buildScorecardMessage } from '../lib/scorecard';
+import { buildScorecardMessage, normalizeName } from '../lib/scorecard';
 
 export default function SendScorecardsPage() {
   const { scorecards } = useContext(AppContext);
@@ -19,7 +19,14 @@ export default function SendScorecardsPage() {
     if (!scorecards.length || !employees.length) return;
 
     const matched = scorecards.map(sc => {
-      const emp = employees.find(e => e.nameKey === sc.nameKey);
+      // Try exact nameKey first, then fuzzy match on normalized first+last
+      const scFirst = normalizeName(sc.firstName);
+      const scLast  = normalizeName(sc.lastName);
+      const emp = employees.find(e =>
+        e.nameKey === sc.nameKey ||
+        (normalizeName(e.firstName) === scFirst && normalizeName(e.lastName) === scLast) ||
+        (normalizeName(e.lastName) + normalizeName(e.firstName)) === (scLast + scFirst)
+      );
       const message = buildScorecardMessage(sc);
       return {
         nameKey: sc.nameKey,

@@ -1,6 +1,6 @@
 /**
  * Generate the default SMS scorecard message for a technician.
- * Uses the exact field names from the Better Life CRM report parser.
+ * Does NOT include overall score — that is an internal metric only.
  */
 export function buildScorecardMessage(tech, weekLabel) {
   const week = weekLabel || 'this week';
@@ -34,23 +34,10 @@ export function buildScorecardMessage(tech, weekLabel) {
     lines.push(`   Late this week: ${tech.weeklyLate}`);
   }
 
-  if (tech.overallScore !== null && tech.overallScore !== undefined) {
-    lines.push('');
-    lines.push(`Overall Score: ${tech.overallScore}% ${scoreEmoji(tech.overallScore)}`);
-  }
-
   lines.push('');
   lines.push('Keep up the great work! Questions? Reply to this message.');
 
   return lines.join('\n');
-}
-
-function scoreEmoji(score) {
-  if (score >= 90) return '🏆';
-  if (score >= 80) return '✅';
-  if (score >= 70) return '👍';
-  if (score >= 60) return '📈';
-  return '💬';
 }
 
 export function getScoreColor(score) {
@@ -80,4 +67,16 @@ export function getScoreLabel(score) {
 export function formatScore(val) {
   if (val === null || val === undefined || val === 0) return '—';
   return `${val}%`;
+}
+
+/**
+ * Normalize a name for fuzzy matching — strips spaces, punctuation, accents, lowercases.
+ * e.g. "O'Brien" → "obrien", "De La Cruz" → "delacruz"
+ */
+export function normalizeName(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z0-9]/g, '');      // remove spaces, punctuation
 }

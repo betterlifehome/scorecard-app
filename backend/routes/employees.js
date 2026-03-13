@@ -25,7 +25,12 @@ function saveEmployees(employees) {
 }
 
 function nameKey(first, last) {
-  return `${last}${first}`.toLowerCase().replace(/[^a-z]/g, '');
+  const normalize = s => String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+  return `${normalize(last)}${normalize(first)}`;
 }
 
 // GET all employees
