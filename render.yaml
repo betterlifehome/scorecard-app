@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: scorecard-app
+    runtime: node
+    buildCommand: "npm install && npm run build --prefix frontend && npm install --prefix backend"
+    startCommand: "node backend/server.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
