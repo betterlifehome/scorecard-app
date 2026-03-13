@@ -1,28 +1,11 @@
 const express = require('express');
-const multer = require('multer');
+const multer  = require('multer');
 const { parse } = require('csv-parse/sync');
 const XLSX = require('xlsx');
-const fs = require('fs');
-const path = require('path');
+const db   = require('../lib/db');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
-
-// Simple file-based storage for employees (no DB needed)
-const DATA_FILE = path.join(__dirname, '../data/employees.json');
-
-function loadEmployees() {
-  try {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  } catch { return []; }
-}
-
-function saveEmployees(employees) {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(employees, null, 2));
-}
 
 function nameKey(first, last) {
   const normalize = s => String(s || '')
@@ -34,13 +17,17 @@ function nameKey(first, last) {
 }
 
 // GET all employees
-router.get('/', (req, res) => {
-  res.json(loadEmployees());
+router.get('/', async (req, res) => {
+  try {
+    const employees = await db.getEmployees();
+    res.json(employees);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// POST upload CSV or Excel roster
-// Expected columns: first_name, last_name, email, phone
-router.post('/upload', upload.single('roster'), (req, res) => {
+// POST upload Excel or CSV roster
+router.post('/upload', upload.single('roster'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -48,11 +35,7 @@ router.post('/upload', upload.single('roster'), (req, res) => {
     let records = [];
 
     if (ext === 'csv') {
-      records = parse(req.file.buffer.toString(), {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      });
+      records = parse(req.file.buffer.toString(), { columns: true, skip_empty_lines: true, trim: true });
     } else if (['xlsx', 'xls'].includes(ext)) {
       const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -61,46 +44,63 @@ router.post('/upload', upload.single('roster'), (req, res) => {
       return res.status(400).json({ error: 'Only .xlsx, .xls, or .csv files are accepted.' });
     }
 
-    const employees = records.map(r => ({
-      firstName: r.first_name || r.firstName || r['First Name'] || r['FIRST NAME'] || '',
-      lastName:  r.last_name  || r.lastName  || r['Last Name']  || r['LAST NAME']  || '',
-      email:     r.email      || r.Email     || r['Email']      || r['EMAIL']      || '',
-      phone:     r.phone      || r.Phone     || r.mobile        || r['Phone']      || r['Mobile'] || '',
-    }))
-    .map(e => ({ ...e, nameKey: nameKey(e.firstName, e.lastName) }))
-    .filter(e => e.firstName && e.lastName);
+    const employees = records.map(r => {
+      const firstName = r.first_name || r.firstName || r['First Name'] || r['FIRST NAME'] || '';
+      const lastName  = r.last_name  || r.lastName  || r['Last Name']  || r['LAST NAME']  || '';
+      return {
+        firstName,
+        lastName,
+        email:   r.email || r.Email || r['Email'] || r['EMAIL'] || '',
+        phone:   r.phone || r.Phone || r.mobile   || r['Phone'] || r['Mobile'] || '',
+        nameKey: nameKey(firstName, lastName),
+      };
+    }).filter(e => e.firstName && e.lastName);
 
-    saveEmployees(employees);
-    res.json({ success: true, count: employees.length, employees });
+    await db.upsertEmployees(employees);
+    res.json({ success: true, count: employees.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST add/update single employee
-router.post('/', (req, res) => {
-  const { firstName, lastName, email, phone } = req.body;
-  if (!firstName || !lastName) return res.status(400).json({ error: 'firstName and lastName required' });
+// POST add or update single employee
+router.post('/', async (req, res) => {
+  try {
+    const { firstName, lastName, email, phone } = req.body;
+    if (!firstName || !lastName) return res.status(400).json({ error: 'firstName and lastName required' });
+    const key = nameKey(firstName, lastName);
+    await db.upsertEmployee({ nameKey: key, firstName, lastName, email, phone });
+    res.json({ success: true, employee: { nameKey: key, firstName, lastName, email, phone } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  const employees = loadEmployees();
-  const key = nameKey(firstName, lastName);
-  const idx = employees.findIndex(e => e.nameKey === key);
-  const employee = { firstName, lastName, email: email || '', phone: phone || '', nameKey: key };
-
-  if (idx >= 0) employees[idx] = employee;
-  else employees.push(employee);
-
-  saveEmployees(employees);
-  res.json({ success: true, employee });
+// PUT update employee (edit in place)
+router.put('/:nameKey', async (req, res) => {
+  try {
+    const { firstName, lastName, email, phone } = req.body;
+    if (!firstName || !lastName) return res.status(400).json({ error: 'firstName and lastName required' });
+    // If name changed, delete old and insert new
+    const newKey = nameKey(firstName, lastName);
+    if (newKey !== req.params.nameKey) {
+      await db.deleteEmployee(req.params.nameKey);
+    }
+    await db.upsertEmployee({ nameKey: newKey, firstName, lastName, email, phone });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE employee
-router.delete('/:nameKey', (req, res) => {
-  const employees = loadEmployees().filter(e => e.nameKey !== req.params.nameKey);
-  saveEmployees(employees);
-  res.json({ success: true });
+router.delete('/:nameKey', async (req, res) => {
+  try {
+    await db.deleteEmployee(req.params.nameKey);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
-module.exports.loadEmployees = loadEmployees;
-module.exports.nameKey = nameKey;

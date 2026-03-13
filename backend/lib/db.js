@@ -44,6 +44,16 @@ async function initDB() {
 
       CREATE INDEX IF NOT EXISTS idx_snapshots_name_key ON weekly_snapshots(name_key);
       CREATE INDEX IF NOT EXISTS idx_snapshots_week_of  ON weekly_snapshots(week_of);
+
+      CREATE TABLE IF NOT EXISTS employees (
+        name_key    TEXT PRIMARY KEY,
+        first_name  TEXT NOT NULL,
+        last_name   TEXT NOT NULL,
+        email       TEXT DEFAULT '',
+        phone       TEXT DEFAULT '',
+        created_at  TIMESTAMPTZ DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
     console.log('✅ Database initialized');
   } catch (err) {
@@ -54,7 +64,71 @@ async function initDB() {
 }
 
 /**
- * Save a batch of scorecards for a given week
+ * Get all employees
+ */
+async function getEmployees() {
+  const res = await pool.query(`SELECT * FROM employees ORDER BY last_name, first_name`);
+  return res.rows.map(r => ({
+    nameKey:   r.name_key,
+    firstName: r.first_name,
+    lastName:  r.last_name,
+    email:     r.email || '',
+    phone:     r.phone || '',
+  }));
+}
+
+/**
+ * Upsert a single employee
+ */
+async function upsertEmployee({ nameKey, firstName, lastName, email, phone }) {
+  await pool.query(`
+    INSERT INTO employees (name_key, first_name, last_name, email, phone, updated_at)
+    VALUES ($1, $2, $3, $4, $5, NOW())
+    ON CONFLICT (name_key) DO UPDATE SET
+      first_name = EXCLUDED.first_name,
+      last_name  = EXCLUDED.last_name,
+      email      = EXCLUDED.email,
+      phone      = EXCLUDED.phone,
+      updated_at = NOW()
+  `, [nameKey, firstName, lastName, email || '', phone || '']);
+}
+
+/**
+ * Upsert many employees (bulk import)
+ */
+async function upsertEmployees(employees) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const emp of employees) {
+      await client.query(`
+        INSERT INTO employees (name_key, first_name, last_name, email, phone, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (name_key) DO UPDATE SET
+          first_name = EXCLUDED.first_name,
+          last_name  = EXCLUDED.last_name,
+          email      = EXCLUDED.email,
+          phone      = EXCLUDED.phone,
+          updated_at = NOW()
+      `, [emp.nameKey, emp.firstName, emp.lastName, emp.email || '', emp.phone || '']);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete an employee by nameKey
+ */
+async function deleteEmployee(nameKey) {
+  await pool.query(`DELETE FROM employees WHERE name_key = $1`, [nameKey]);
+}
+
+
  * weekOf: 'YYYY-MM-DD' string (Monday of the week)
  */
 async function saveWeeklySnapshot(weekOf, scorecards) {
@@ -213,4 +287,8 @@ module.exports = {
   getEmployeeHistory,
   getAvailableWeeks,
   getScorecardsByWeek,
+  getEmployees,
+  upsertEmployee,
+  upsertEmployees,
+  deleteEmployee,
 };
