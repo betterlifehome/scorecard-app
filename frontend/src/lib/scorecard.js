@@ -1,6 +1,82 @@
 /**
- * Generate the default SMS scorecard message for a technician.
- * Does NOT include overall score — that is an internal metric only.
+ * Per-metric color thresholds for Better Life Home Cleaning
+ *
+ * Quality (Avg. col Z):    ≥98 bright green, 96-98 light green, 94-96 yellow, <94 red
+ * Response Rate (col AA):  ≥60 bright green, 50-60 light green, 40-50 yellow, <40 red
+ * Efficiency (col AE):     ≥85 bright green, 80-85 light green, 75-80 yellow, <75 red
+ * Productivity (col Z/L):  ≥105 bright green, 98-105 green, 92-98 yellow, <92 red
+ */
+
+const COLORS = {
+  brightGreen: '#16a34a',
+  lightGreen:  '#4ade80',
+  yellow:      '#f59e0b',
+  red:         '#ef4444',
+  muted:       '#9ca3af',
+};
+
+const BG = {
+  brightGreen: '#f0fdf4',
+  lightGreen:  '#f0fdf4',
+  yellow:      '#fffbeb',
+  red:         '#fef2f2',
+  muted:       '#f9fafb',
+};
+
+function colorFor(value, thresholds) {
+  if (value === null || value === undefined || value === 0) return COLORS.muted;
+  if (value >= thresholds[0]) return COLORS.brightGreen;
+  if (value >= thresholds[1]) return COLORS.lightGreen;
+  if (value >= thresholds[2]) return COLORS.yellow;
+  return COLORS.red;
+}
+
+function bgFor(value, thresholds) {
+  if (value === null || value === undefined || value === 0) return BG.muted;
+  if (value >= thresholds[0]) return BG.brightGreen;
+  if (value >= thresholds[1]) return BG.lightGreen;
+  if (value >= thresholds[2]) return BG.yellow;
+  return BG.red;
+}
+
+// Threshold arrays: [brightGreen, lightGreen, yellow] — below yellow = red
+const T = {
+  quality:     [98, 96, 94],
+  response:    [60, 50, 40],
+  efficiency:  [85, 80, 75],
+  productivity:[105, 98, 92],
+};
+
+export function getMetricColor(metric, value) {
+  return colorFor(value, T[metric] || T.quality);
+}
+
+export function getMetricBg(metric, value) {
+  return bgFor(value, T[metric] || T.quality);
+}
+
+export function getMetricLabel(metric, value) {
+  if (value === null || value === undefined || value === 0) return 'No data';
+  const t = T[metric] || T.quality;
+  if (value >= t[0]) return 'Excellent';
+  if (value >= t[1]) return 'Good';
+  if (value >= t[2]) return 'Fair';
+  return 'Needs Attention';
+}
+
+// Legacy helpers (used in a few places — route through quality thresholds as default)
+export function getScoreColor(value) { return colorFor(value, T.quality); }
+export function getScoreBg(value)    { return bgFor(value, T.quality); }
+export function getScoreLabel(value) { return getMetricLabel('quality', value); }
+
+export function formatScore(val) {
+  if (val === null || val === undefined || val === 0) return '—';
+  return `${val}%`;
+}
+
+/**
+ * SMS scorecard message — no overall score shown to techs.
+ * Quality Score = Avg. column (avgSurveyScore).
  */
 export function buildScorecardMessage(tech, weekLabel) {
   const week = weekLabel || 'this week';
@@ -20,6 +96,9 @@ export function buildScorecardMessage(tech, weekLabel) {
   if (tech.efficiencyScore > 0) {
     lines.push(`⚡ Efficiency: ${tech.efficiencyScore}%`);
   }
+  if (tech.qualityScore > 0) {
+    lines.push(`📈 Productivity: ${tech.qualityScore}%`);
+  }
 
   lines.push('');
   lines.push(`📅 Unplanned Absences:`);
@@ -37,43 +116,13 @@ export function buildScorecardMessage(tech, weekLabel) {
   return lines.join('\n');
 }
 
-export function getScoreColor(score) {
-  if (score === null || score === undefined || score === 0) return 'var(--ink-300)';
-  if (score >= 90) return 'var(--score-excellent)';
-  if (score >= 80) return 'var(--score-good)';
-  if (score >= 70) return 'var(--score-fair)';
-  return 'var(--score-poor)';
-}
-
-export function getScoreBg(score) {
-  if (score === null || score === undefined || score === 0) return 'var(--ink-050)';
-  if (score >= 90) return '#e8f5ee';
-  if (score >= 80) return '#eef5e8';
-  if (score >= 70) return '#fff4e0';
-  return '#fdecea';
-}
-
-export function getScoreLabel(score) {
-  if (score === null || score === undefined || score === 0) return 'No data';
-  if (score >= 90) return 'Excellent';
-  if (score >= 80) return 'Good';
-  if (score >= 70) return 'Fair';
-  return 'Needs Attention';
-}
-
-export function formatScore(val) {
-  if (val === null || val === undefined || val === 0) return '—';
-  return `${val}%`;
-}
-
 /**
- * Normalize a name for fuzzy matching — strips spaces, punctuation, accents, lowercases.
- * e.g. "O'Brien" → "obrien", "De La Cruz" → "delacruz"
+ * Normalize a name for fuzzy matching
  */
 export function normalizeName(str) {
   return String(str || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove accents
-    .replace(/[^a-z0-9]/g, '');      // remove spaces, punctuation
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
 }

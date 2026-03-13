@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Phone, CheckCircle, AlertCircle, Loader, Briefcase, Clock, DollarSign } from 'lucide-react';
 import { useApp } from '../components/Layout';
-import { getScoreColor, getScoreBg, getScoreLabel, formatScore, buildScorecardMessage } from '../lib/scorecard';
+import { getMetricColor, getMetricBg, getMetricLabel, formatScore, buildScorecardMessage } from '../lib/scorecard';
 import { sendSMS } from '../lib/api';
 
 export default function TechDetailPage() {
@@ -41,9 +41,10 @@ export default function TechDetailPage() {
   const isActive = tech.weeklyWorked > 0;
 
   const scoreMetrics = [
-    { label: 'Quality Score',   value: tech.avgSurveyScore,  desc: 'Avg. score from customer surveys (col Z)' },
-    { label: 'Response Rate',   value: tech.responseRate,    desc: 'Customers who responded to scorecard (col AA)' },
-    { label: 'Efficiency',      value: tech.efficiencyScore, desc: 'Job hours vs clock hours (col AE)' },
+    { label: 'Quality Score',   metric: 'quality',      value: tech.avgSurveyScore,  desc: 'Avg. score from customer surveys (col Z)' },
+    { label: 'Response Rate',   metric: 'response',     value: tech.responseRate,    desc: 'Customers who responded to scorecard (col AA)' },
+    { label: 'Efficiency',      metric: 'efficiency',   value: tech.efficiencyScore, desc: 'Job hours vs clock hours (col AE)' },
+    { label: 'Productivity',    metric: 'productivity', value: tech.qualityScore,    desc: 'Quality/productivity score (col L)' },
   ];
 
   return (
@@ -105,8 +106,8 @@ export default function TechDetailPage() {
 
           {/* 4 score cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {scoreMetrics.map(({ label, value, desc }) => (
-              <ScoreCard key={label} label={label} value={value} desc={desc} />
+            {scoreMetrics.map(({ label, metric, value, desc }) => (
+              <ScoreCard key={label} label={label} metric={metric} value={value} desc={desc} />
             ))}
           </div>
 
@@ -262,22 +263,22 @@ export default function TechDetailPage() {
   );
 }
 
-function ScoreCard({ label, value, desc }) {
+function ScoreCard({ label, metric, value, desc }) {
   return (
     <div style={{
-      background: getScoreBg(value),
-      border: `1px solid ${getScoreColor(value)}22`,
+      background: getMetricBg(metric, value),
+      border: `1px solid ${getMetricColor(metric, value)}22`,
       borderRadius: 'var(--radius-md)',
       padding: '14px 16px',
     }} title={desc}>
       <div style={{ fontSize: 10, color: 'var(--ink-400, #8b909e)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
         {label}
       </div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: getScoreColor(value), letterSpacing: '-0.03em', marginBottom: 3 }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: getMetricColor(metric, value), letterSpacing: '-0.03em', marginBottom: 3 }}>
         {formatScore(value)}
       </div>
-      <div style={{ fontSize: 10, color: getScoreColor(value), opacity: 0.8 }}>
-        {getScoreLabel(value)}
+      <div style={{ fontSize: 10, color: getMetricColor(metric, value), opacity: 0.8 }}>
+        {getMetricLabel(metric, value)}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, MessageSquare, ChevronRight, TrendingUp, Users, Star, Zap } from 'lucide-react';
 import { useApp } from '../components/Layout';
-import { getScoreColor, getScoreBg, getScoreLabel, formatScore } from '../lib/scorecard';
+import { getMetricColor, getMetricBg, getMetricLabel, formatScore } from '../lib/scorecard';
 import BulkSMSModal from '../components/BulkSMSModal';
 
 export default function ScorecardsPage() {
@@ -31,19 +31,17 @@ export default function ScorecardsPage() {
   const filtered = scorecards
     .filter(t => t.fullName.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      if (sortBy === 'lastName')      return a.lastName.localeCompare(b.lastName);
-      if (sortBy === 'overallScore')  return (b.overallScore ?? 0) - (a.overallScore ?? 0);
-      if (sortBy === 'qualityScore')  return (b.qualityScore ?? 0) - (a.qualityScore ?? 0);
-      if (sortBy === 'absences')      return (b.weeklyUnexcused ?? 0) - (a.weeklyUnexcused ?? 0);
+      if (sortBy === 'lastName')     return a.lastName.localeCompare(b.lastName);
+      if (sortBy === 'quality')      return (b.avgSurveyScore ?? 0) - (a.avgSurveyScore ?? 0);
+      if (sortBy === 'absences')     return (b.weeklyUnexcused ?? 0) - (a.weeklyUnexcused ?? 0);
+      if (sortBy === 'efficiency')   return (b.efficiencyScore ?? 0) - (a.efficiencyScore ?? 0);
       return 0;
     });
 
-  // Active = worked at least 1 day this week
   const activeCount = scorecards.filter(s => s.weeklyWorked > 0).length;
 
   return (
     <div>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 600, color: 'var(--ink-900)', letterSpacing: '-0.03em', marginBottom: 4 }}>
@@ -70,11 +68,11 @@ export default function ScorecardsPage() {
       {/* Summary stats */}
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 28 }}>
-          <StatCard icon={<Users size={16} color="var(--brand)" />}       label="Active"         value={activeCount} />
-          <StatCard icon={<Star size={16} color="var(--warning)" />}      label="Avg Quality"    value={formatScore(stats.avgQuality)}      color={getScoreColor(stats.avgQuality)} />
-          <StatCard icon={<Zap size={16} color="#6b3fa0" />}              label="Avg Survey"     value={formatScore(stats.avgSurveyScore)}  color={getScoreColor(stats.avgSurveyScore)} />
-          <StatCard icon={<TrendingUp size={16} color="var(--info)" />}   label="Avg Efficiency" value={formatScore(stats.avgEfficiency)}   color={getScoreColor(stats.avgEfficiency)} />
-          <StatCard icon={<MessageSquare size={16} color="var(--brand)" />} label="Avg Response" value={formatScore(stats.avgResponseRate)} color={getScoreColor(stats.avgResponseRate)} />
+          <StatCard icon={<Users size={16} color="var(--brand)" />}       label="Active"        value={activeCount} />
+          <StatCard icon={<Star size={16} color="var(--warning)" />}      label="Avg Quality"   value={formatScore(stats.avgSurveyScore)}  color={getMetricColor('quality',      stats.avgSurveyScore)} />
+          <StatCard icon={<MessageSquare size={16} color="var(--brand)" />} label="Avg Response" value={formatScore(stats.avgResponseRate)} color={getMetricColor('response',     stats.avgResponseRate)} />
+          <StatCard icon={<TrendingUp size={16} color="var(--info)" />}   label="Avg Efficiency" value={formatScore(stats.avgEfficiency)}  color={getMetricColor('efficiency',   stats.avgEfficiency)} />
+          <StatCard icon={<Zap size={16} color="#6b3fa0" />}              label="Avg Productivity" value={formatScore(stats.avgQuality)}   color={getMetricColor('productivity', stats.avgQuality)} />
         </div>
       )}
 
@@ -105,8 +103,8 @@ export default function ScorecardsPage() {
           }}
         >
           <option value="lastName">Sort: Name</option>
-          <option value="overallScore">Sort: Overall Score</option>
-          <option value="qualityScore">Sort: Quality</option>
+          <option value="quality">Sort: Quality</option>
+          <option value="efficiency">Sort: Efficiency</option>
           <option value="absences">Sort: Absences</option>
         </select>
       </div>
@@ -125,17 +123,13 @@ export default function ScorecardsPage() {
       )}
 
       {showBulkSMS && (
-        <BulkSMSModal
-          scorecards={scorecards}
-          onClose={() => setShowBulkSMS(false)}
-        />
+        <BulkSMSModal scorecards={scorecards} onClose={() => setShowBulkSMS(false)} />
       )}
     </div>
   );
 }
 
 function TechCard({ tech }) {
-  const overall = tech.overallScore;
   const isActive = tech.weeklyWorked > 0;
 
   return (
@@ -154,7 +148,7 @@ function TechCard({ tech }) {
         onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-md)'}
         onMouseLeave={e => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
       >
-        {/* Name + overall score */}
+        {/* Name + quality score badge */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-900)', marginBottom: 2 }}>
@@ -164,32 +158,29 @@ function TechCard({ tech }) {
               {isActive ? `${tech.weeklyWorked} days worked` : 'Not active this week'}
             </div>
           </div>
-          {overall !== null && overall !== undefined && isActive && (
+          {tech.avgSurveyScore > 0 && isActive && (
             <div style={{
-              background: getScoreBg(overall),
-              color: getScoreColor(overall),
-              fontWeight: 700,
-              fontSize: 17,
+              background: getMetricBg('quality', tech.avgSurveyScore),
+              color: getMetricColor('quality', tech.avgSurveyScore),
+              fontWeight: 700, fontSize: 17,
               padding: '4px 10px',
               borderRadius: 'var(--radius-md)',
               letterSpacing: '-0.02em',
             }}>
-              {overall}%
+              {tech.avgSurveyScore}%
             </div>
           )}
         </div>
 
         {isActive && (
           <>
-            {/* Mini score bars */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px 16px', marginBottom: 12 }}>
-              <MiniScore label="Quality"    value={tech.qualityScore} />
-              <MiniScore label="Response"   value={tech.responseRate} />
-              <MiniScore label="Survey Avg" value={tech.avgSurveyScore} />
-              <MiniScore label="Efficiency" value={tech.efficiencyScore} />
+              <MiniScore label="Quality"      metric="quality"      value={tech.avgSurveyScore} />
+              <MiniScore label="Response"     metric="response"     value={tech.responseRate} />
+              <MiniScore label="Efficiency"   metric="efficiency"   value={tech.efficiencyScore} />
+              <MiniScore label="Productivity" metric="productivity" value={tech.qualityScore} />
             </div>
 
-            {/* Absences footer */}
             <div style={{ display: 'flex', gap: 8, paddingTop: 10, borderTop: '1px solid var(--ink-100)', alignItems: 'center', flexWrap: 'wrap' }}>
               <AbsencePill label="unexcused" value={tech.weeklyUnexcused} threshold={0} />
               {tech.weeklyLate > 0 && <AbsencePill label="late" value={tech.weeklyLate} threshold={2} />}
@@ -205,14 +196,15 @@ function TechCard({ tech }) {
   );
 }
 
-function MiniScore({ label, value }) {
+function MiniScore({ label, metric, value }) {
+  const color = getMetricColor(metric, value);
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
         <span style={{ fontSize: 11, color: 'var(--ink-400, #8b909e)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {label}
         </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: getScoreColor(value) }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color }}>
           {formatScore(value)}
         </span>
       </div>
@@ -220,7 +212,7 @@ function MiniScore({ label, value }) {
         <div style={{
           height: '100%',
           width: `${Math.min(value ?? 0, 100)}%`,
-          background: getScoreColor(value),
+          background: color,
           borderRadius: 2,
           transition: 'width 0.4s ease',
         }} />
