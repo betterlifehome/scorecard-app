@@ -129,6 +129,8 @@ async function deleteEmployee(nameKey) {
 }
 
 
+/**
+ * Save a batch of scorecards for a given week
  * weekOf: 'YYYY-MM-DD' string (Monday of the week)
  */
 async function saveWeeklySnapshot(weekOf, scorecards) {
