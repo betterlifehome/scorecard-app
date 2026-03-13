@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Phone, CheckCircle, AlertCircle, Loader, Briefcase, Clock, DollarSign } from 'lucide-react';
 import { useApp } from '../components/Layout';
@@ -12,8 +12,32 @@ export default function TechDetailPage() {
 
   const [message, setMessage] = useState(() => tech ? buildScorecardMessage(tech) : '');
   const [phone, setPhone]     = useState('');
+  const [rosterPhone, setRosterPhone] = useState('');
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState(null);
+
+  // Fetch employee phone from roster
+  useEffect(() => {
+    if (!tech) return;
+    fetch('/api/employees')
+      .then(r => r.json())
+      .then(emps => {
+        const emp = emps.find(e => e.nameKey === tech.nameKey);
+        if (emp?.phone) {
+          setPhone(emp.phone);
+          setRosterPhone(emp.phone);
+        }
+      })
+      .catch(() => {});
+
+    // Load saved template if any
+    const saved = localStorage.getItem('scorecard_template');
+    if (saved && tech) {
+      try {
+        setMessage(buildScorecardMessage(tech, null, saved));
+      } catch { /* use default */ }
+    }
+  }, [tech?.nameKey]);
 
   if (!tech) {
     return (
@@ -168,7 +192,14 @@ export default function TechDetailPage() {
           </div>
 
           <div>
-            <label style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 5, display: 'block' }}>Phone number</label>
+            <label style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 5, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Phone number</span>
+              {rosterPhone && phone !== rosterPhone && (
+                <button onClick={() => setPhone(rosterPhone)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--brand)', padding: 0 }}>
+                  Reset to roster number
+                </button>
+              )}
+            </label>
             <div style={{ position: 'relative' }}>
               <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-300)' }} />
               <input
@@ -184,6 +215,11 @@ export default function TechDetailPage() {
                 }}
               />
             </div>
+            {!rosterPhone && (
+              <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4 }}>
+                ⚠ No phone in roster — enter manually or add in Employees tab
+              </div>
+            )}
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

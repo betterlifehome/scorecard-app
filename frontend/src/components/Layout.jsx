@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { createContext, useContext, useState } from 'react';
-import { ClipboardList, Upload, LayoutGrid, Users, Send, Clock } from 'lucide-react';
+import { ClipboardList, Upload, LayoutGrid, Users, Send, Clock, FileText } from 'lucide-react';
 
 export const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
@@ -46,6 +46,7 @@ export default function Layout() {
             <NavItem to="/employees" icon={<Users size={15} />}       label="Employees" />
             <NavItem to="/send"      icon={<Send size={15} />}        label="Send" />
             <NavItem to="/benefits"  icon={<Clock size={15} />}       label="Hours" />
+            <NavItem to="/template"  icon={<FileText size={15} />}    label="Template" />
           </nav>
         </header>
 

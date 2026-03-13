@@ -7,6 +7,8 @@ import EmployeesPage from './pages/EmployeesPage';
 import SendScorecardsPage from './pages/SendScorecardsPage';
 import BenefitsPage from './pages/BenefitsPage';
 
+import TemplatePage from './pages/TemplatePage';
+
 export default function App() {
   return (
     <Routes>
@@ -17,6 +19,7 @@ export default function App() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="send" element={<SendScorecardsPage />} />
         <Route path="benefits" element={<BenefitsPage />} />
+        <Route path="template" element={<TemplatePage />} />
       </Route>
     </Routes>
   );

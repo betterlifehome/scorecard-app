@@ -75,30 +75,45 @@ export function formatScore(val) {
 }
 
 /**
- * SMS scorecard message — no overall score shown to techs.
+ * SMS scorecard message — supports custom template from localStorage.
  * Quality Score = Avg. column (avgSurveyScore).
  */
-export function buildScorecardMessage(tech, weekLabel) {
+export function buildScorecardMessage(tech, weekLabel, customTemplate) {
   const week = weekLabel || 'this week';
-  const name = tech.firstName || tech.fullName.split(' ')[0];
+  const name = tech.firstName || tech.fullName?.split(' ')[0] || '';
 
+  // Use custom template if provided, otherwise check localStorage, then default
+  const template = customTemplate
+    || (typeof window !== 'undefined' && localStorage.getItem('scorecard_template'))
+    || null;
+
+  if (template) {
+    return template.replace(/\{(\w+)\}/g, (_, key) => {
+      const map = {
+        firstName:        name,
+        week,
+        qualityScore:     tech.avgSurveyScore  ?? '—',
+        responseRate:     tech.responseRate     ?? '—',
+        efficiencyScore:  tech.efficiencyScore  ?? '—',
+        productivityScore: tech.qualityScore    ?? '—',
+        weeklyUnexcused:  tech.weeklyUnexcused  ?? 0,
+        rollingUnexcused: tech.rollingUnexcused ?? 0,
+        weeklyLate:       tech.weeklyLate       ?? 0,
+      };
+      return map[key] !== undefined ? map[key] : `{${key}}`;
+    });
+  }
+
+  // Default built-in template
   const lines = [
     `Hi ${name}! Here's your Better Life scorecard for ${week}:`,
     '',
   ];
 
-  if (tech.avgSurveyScore > 0) {
-    lines.push(`⭐ Quality Score: ${tech.avgSurveyScore}%`);
-  }
-  if (tech.responseRate > 0) {
-    lines.push(`📋 Customer Response Rate: ${tech.responseRate}%`);
-  }
-  if (tech.efficiencyScore > 0) {
-    lines.push(`⚡ Efficiency: ${tech.efficiencyScore}%`);
-  }
-  if (tech.qualityScore > 0) {
-    lines.push(`📈 Productivity: ${tech.qualityScore}%`);
-  }
+  if (tech.avgSurveyScore > 0)  lines.push(`⭐ Quality Score: ${tech.avgSurveyScore}%`);
+  if (tech.responseRate > 0)    lines.push(`📋 Customer Response Rate: ${tech.responseRate}%`);
+  if (tech.efficiencyScore > 0) lines.push(`⚡ Efficiency: ${tech.efficiencyScore}%`);
+  if (tech.qualityScore > 0)    lines.push(`📈 Productivity: ${tech.qualityScore}%`);
 
   lines.push('');
   lines.push(`📅 Unplanned Absences:`);
@@ -106,9 +121,7 @@ export function buildScorecardMessage(tech, weekLabel) {
   if (tech.rollingUnexcused !== null && tech.rollingUnexcused !== undefined) {
     lines.push(`   Rolling 6 months: ${tech.rollingUnexcused}`);
   }
-  if (tech.weeklyLate > 0) {
-    lines.push(`   Late this week: ${tech.weeklyLate}`);
-  }
+  if (tech.weeklyLate > 0) lines.push(`   Late this week: ${tech.weeklyLate}`);
 
   lines.push('');
   lines.push('Keep up the great work! Questions? Reply to this message.');
