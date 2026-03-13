@@ -100,6 +100,20 @@ function toFloat(val) {
 }
 
 /**
+ * Convert a percentage value that may be stored as a decimal (0.837)
+ * or as a whole number (83.7). Values ≤ 2.0 are assumed to be decimals
+ * and multiplied by 100. Supports productivity > 100% (e.g. 1.12 → 112%).
+ */
+function toPercent(val) {
+  const n = toFloat(val);
+  if (n === null) return null;
+  // Decimal format: 0.0 – 2.0 range → multiply by 100
+  if (Math.abs(n) <= 2.0) return Math.round(n * 1000) / 10; // 1 decimal
+  // Already a percentage (e.g. 83.7, 105.2)
+  return Math.round(n * 10) / 10;
+}
+
+/**
  * Convert to integer count (absences, days worked, etc.).
  */
 function toInt(val) {
@@ -181,11 +195,11 @@ function parseReport(rows) {
       late:         toInt(row[COL.late]),
       off:          toInt(row[COL.off]),
 
-      // Performance scores
-      qualityScore:  roundScore(row[COL.score]),         // L: Score (0-100)
-      responseRate:  roundScore(row[COL.responseRate]),  // AA: Response Rate %
-      efficiencyScore: roundScore(row[COL.efficiency]),  // AE: Efficiency %
-      avgSurveyScore:  roundScore(row[COL.avgSurvey]),   // Z: Avg survey (productivity proxy)
+      // Performance scores — CRM exports these as decimals (0.837 = 83.7%)
+      qualityScore:    toPercent(row[COL.score]),         // L: Productivity score
+      responseRate:    toPercent(row[COL.responseRate]),  // AA: Response Rate %
+      efficiencyScore: toPercent(row[COL.efficiency]),    // AE: Efficiency %
+      avgSurveyScore:  toPercent(row[COL.avgSurvey]),     // Z: Avg survey score
 
       // Volume
       jobs:         toInt(row[COL.jobs]),
