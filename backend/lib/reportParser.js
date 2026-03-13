@@ -49,15 +49,16 @@ const COL = {
   unexcused:    colToIdx('I'),   // 8  ← unplanned absences
   late:         colToIdx('J'),   // 9
   off:          colToIdx('K'),   // 10
-  score:        colToIdx('L'),   // 11 ← quality score
+  score:        colToIdx('L'),   // 11 ← internal score (not shown to techs)
   jobs:         colToIdx('M'),   // 12
   totalSurveys: colToIdx('T'),   // 19
-  avgSurvey:    colToIdx('Z'),   // 25 ← productivity proxy
+  avgSurvey:    colToIdx('Z'),   // 25 ← quality score (Avg. survey)
   responseRate: colToIdx('AA'),  // 26 ← customer response rate
   jobHours:     colToIdx('AB'),  // 27
   clockHours:   colToIdx('AC'),  // 28
   revenue:      colToIdx('AD'),  // 29
   efficiency:   colToIdx('AE'),  // 30 ← efficiency score
+  standardClean: colToIdx('AH'), // 33 ← Standard Clean = Productivity (decimal: 1.05 = 105%)
 };
 
 /**
@@ -103,10 +104,11 @@ function toFloat(val) {
  * Convert a percentage value that may be stored as a decimal (0.837)
  * or as a whole number (83.7). Values ≤ 2.0 are assumed to be decimals
  * and multiplied by 100. Supports productivity > 100% (e.g. 1.12 → 112%).
+ * Returns null for zero (means no data in CRM export).
  */
 function toPercent(val) {
   const n = toFloat(val);
-  if (n === null) return null;
+  if (n === null || n === 0) return null;
   // Decimal format: 0.0 – 2.0 range → multiply by 100
   if (Math.abs(n) <= 2.0) return Math.round(n * 1000) / 10; // 1 decimal
   // Already a percentage (e.g. 83.7, 105.2)
@@ -195,11 +197,11 @@ function parseReport(rows) {
       late:         toInt(row[COL.late]),
       off:          toInt(row[COL.off]),
 
-      // Performance scores — CRM exports these as decimals (0.837 = 83.7%)
-      qualityScore:    toPercent(row[COL.score]),         // L: Productivity score
+      // Performance scores
+      qualityScore:    toPercent(row[COL.standardClean]), // AH: Standard Clean = Productivity (decimal)
       responseRate:    toPercent(row[COL.responseRate]),  // AA: Response Rate %
       efficiencyScore: toPercent(row[COL.efficiency]),    // AE: Efficiency %
-      avgSurveyScore:  toPercent(row[COL.avgSurvey]),     // Z: Avg survey score
+      avgSurveyScore:  toPercent(row[COL.avgSurvey]),     // Z: Avg survey score (Quality)
 
       // Volume
       jobs:         toInt(row[COL.jobs]),
