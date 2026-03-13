@@ -58,7 +58,7 @@ export function getMetricBg(metric, value) {
 export function getMetricLabel(metric, value) {
   if (value === null || value === undefined || value === 0) return 'No data';
   const t = T[metric] || T.quality;
-  if (value >= t[0]) return 'Excellent';
+  if (value >= t[0]) return metric === 'productivity' && value >= 105 ? 'Exceeds Plan' : 'Excellent';
   if (value >= t[1]) return 'Good';
   if (value >= t[2]) return 'Fair';
   return 'Needs Attention';
@@ -70,6 +70,18 @@ export function getScoreBg(value)    { return bgFor(value, T.quality); }
 export function getScoreLabel(value) { return getMetricLabel('quality', value); }
 
 export function formatScore(val) {
+  if (val === null || val === undefined) return '—';
+  if (val === 0) return '—';
+  return `${val}%`;
+}
+
+export function formatMetric(metric, val) {
+  if (val === null || val === undefined || val === 0) return '—';
+  return `${val}%`;
+}
+
+// For productivity specifically — show value even if over 100
+export function formatProductivity(val) {
   if (val === null || val === undefined || val === 0) return '—';
   return `${val}%`;
 }

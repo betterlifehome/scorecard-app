@@ -4,7 +4,58 @@ const db = require('../lib/db');
 
 const BENEFIT_THRESHOLD = 130;
 
-// GET /api/history/months — list all months with data
+// GET /api/history/scorecards?weekOf=2026-03-10
+// Returns scorecards for a week (latest if no weekOf param)
+router.get('/scorecards', async (req, res) => {
+  try {
+    const { weekOf } = req.query;
+    const rows = await db.getScorecardsByWeek(weekOf || null);
+
+    if (!rows.length) return res.json({ scorecards: [], weekOf: null });
+
+    // Map DB rows back to scorecard shape the frontend expects
+    const scorecards = rows.map((r, i) => ({
+      id:              i + 1,
+      firstName:       r.first_name,
+      lastName:        r.last_name,
+      fullName:        `${r.first_name} ${r.last_name}`.trim(),
+      nameKey:         r.name_key,
+      weekOf:          r.week_of,
+
+      // Scores — DB stores avg_survey_score as quality display
+      avgSurveyScore:   r.avg_survey_score  != null ? parseFloat(r.avg_survey_score)  : null,
+      qualityScore:     r.quality_score     != null ? parseFloat(r.quality_score)     : null,
+      responseRate:     r.response_rate     != null ? parseFloat(r.response_rate)     : null,
+      efficiencyScore:  r.efficiency_score  != null ? parseFloat(r.efficiency_score)  : null,
+      overallScore:     r.overall_score     != null ? parseFloat(r.overall_score)     : null,
+
+      // Attendance
+      weeklyWorked:    r.days_worked   || 0,
+      weeklyUnexcused: r.unexcused     || 0,
+      weeklyExcused:   r.excused       || 0,
+      weeklyLate:      r.late          || 0,
+      rollingUnexcused: null, // not stored per-week in DB
+      rollingLate:      null,
+      hasRollingData:   false,
+
+      // Volume
+      jobs:        r.jobs                                    || 0,
+      jobHours:    r.job_hours   != null ? parseFloat(r.job_hours)   : null,
+      clockHours:  r.clock_hours != null ? parseFloat(r.clock_hours) : null,
+      revenue:     r.revenue     != null ? parseFloat(r.revenue)     : null,
+    }));
+
+    const weekOfStr = rows[0].week_of instanceof Date
+      ? rows[0].week_of.toISOString().split('T')[0]
+      : String(rows[0].week_of).split('T')[0];
+
+    res.json({ scorecards, weekOf: weekOfStr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 router.get('/months', async (req, res) => {
   try {
     const months = await db.getAvailableMonths();

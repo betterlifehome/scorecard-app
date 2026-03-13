@@ -183,6 +183,27 @@ async function getAvailableWeeks() {
   return res.rows.map(r => r.week_of);
 }
 
+/**
+ * Get scorecards for a specific week (or latest if weekOf is null)
+ */
+async function getScorecardsByWeek(weekOf) {
+  let res;
+  if (weekOf) {
+    res = await pool.query(`
+      SELECT * FROM weekly_snapshots
+      WHERE week_of = $1
+      ORDER BY last_name, first_name
+    `, [weekOf]);
+  } else {
+    res = await pool.query(`
+      SELECT * FROM weekly_snapshots
+      WHERE week_of = (SELECT MAX(week_of) FROM weekly_snapshots)
+      ORDER BY last_name, first_name
+    `);
+  }
+  return res.rows;
+}
+
 module.exports = {
   pool,
   initDB,
@@ -191,4 +212,5 @@ module.exports = {
   getAvailableMonths,
   getEmployeeHistory,
   getAvailableWeeks,
+  getScorecardsByWeek,
 };

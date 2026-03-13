@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { ClipboardList, Upload, LayoutGrid, Users, Send, Clock, FileText } from 'lucide-react';
 
 export const AppContext = createContext(null);
@@ -10,16 +10,51 @@ export default function Layout() {
   const [scorecards, setScorecards] = useState([]);
   const [stats, setStats]           = useState(null);
   const [weekOf, setWeekOf]         = useState('');
+  const [availableWeeks, setAvailableWeeks] = useState([]);
+  const [loadingDB, setLoadingDB]   = useState(true);
+
+  // On mount — load latest scorecards from DB so navigation never shows blank
+  useEffect(() => {
+    fetch('/api/history/scorecards')
+      .then(r => r.json())
+      .then(data => {
+        if (data.scorecards?.length) {
+          setScorecards(data.scorecards);
+          setWeekOf(data.weekOf || '');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDB(false));
+
+    fetch('/api/history/weeks')
+      .then(r => r.json())
+      .then(weeks => setAvailableWeeks(weeks.map(w => String(w).split('T')[0])))
+      .catch(() => {});
+  }, []);
+
+  async function switchWeek(week) {
+    const res = await fetch(`/api/history/scorecards?weekOf=${week}`);
+    const data = await res.json();
+    if (data.scorecards?.length) {
+      setScorecards(data.scorecards);
+      setWeekOf(data.weekOf || week);
+    }
+  }
 
   function loadResults(data) {
     setScorecards(data.scorecards || []);
     setStats(data.stats || null);
     setWeekOf(data.weekOf || '');
+    // Refresh available weeks
+    fetch('/api/history/weeks')
+      .then(r => r.json())
+      .then(weeks => setAvailableWeeks(weeks.map(w => String(w).split('T')[0])))
+      .catch(() => {});
     navigate('/scorecards');
   }
 
   return (
-    <AppContext.Provider value={{ scorecards, setScorecards, stats, setStats, weekOf, loadResults }}>
+    <AppContext.Provider value={{ scorecards, setScorecards, stats, setStats, weekOf, loadResults, availableWeeks, switchWeek, loadingDB }}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <header style={{
           background: 'var(--brand-dark)',
@@ -41,12 +76,12 @@ export default function Layout() {
           </div>
 
           <nav style={{ display: 'flex', gap: 4, marginLeft: 8, flexWrap: 'wrap' }}>
-            <NavItem to="/"          icon={<Upload size={15} />}      label="Upload" />
-            <NavItem to="/scorecards" icon={<LayoutGrid size={15} />} label="Scorecards" />
-            <NavItem to="/employees" icon={<Users size={15} />}       label="Employees" />
-            <NavItem to="/send"      icon={<Send size={15} />}        label="Send" />
-            <NavItem to="/benefits"  icon={<Clock size={15} />}       label="Hours" />
-            <NavItem to="/template"  icon={<FileText size={15} />}    label="Template" />
+            <NavItem to="/"           icon={<Upload size={15} />}      label="Upload" />
+            <NavItem to="/scorecards" icon={<LayoutGrid size={15} />}  label="Scorecards" />
+            <NavItem to="/employees"  icon={<Users size={15} />}       label="Employees" />
+            <NavItem to="/send"       icon={<Send size={15} />}        label="Send" />
+            <NavItem to="/benefits"   icon={<Clock size={15} />}       label="Hours" />
+            <NavItem to="/template"   icon={<FileText size={15} />}    label="Template" />
           </nav>
         </header>
 
